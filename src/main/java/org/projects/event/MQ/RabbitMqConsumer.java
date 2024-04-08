@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -38,8 +36,9 @@ public class RabbitMqConsumer implements BasicConsumer {
 
     @PostConstruct
     public void init() throws IOException, TimeoutException {
+        logger.info("Reached consumer init");
         connectionFactory = new ConnectionFactory();
-        connectionFactory.setHost("localhost");
+        connectionFactory.setHost("host.docker.internal");
         connectionFactory.setPort(5672);
         queue = "event";
         autoAcknowledgment = Boolean.FALSE;
@@ -51,6 +50,7 @@ public class RabbitMqConsumer implements BasicConsumer {
     }
 
     public void startConsumer() throws IOException, TimeoutException {
+        logger.info("Reached consumer startConsumer");
         connection = connectionFactory.newConnection();
         channel = connection.createChannel();
         channel.queueDeclare(queue, true, false, false, queueArguments);
@@ -63,7 +63,6 @@ public class RabbitMqConsumer implements BasicConsumer {
             }
             logger.info("Message consumed {}", event);
         };
-        //consumer = new CustomConsumer(channel);
         channel.addShutdownListener(listener -> {
             if(!listener.isInitiatedByApplication()){
                 logger.info("Unexpected channel shutdown, attempting to recover");
@@ -84,30 +83,9 @@ public class RabbitMqConsumer implements BasicConsumer {
     public void consume() {
         try {
             channel.basicConsume(queue, autoAcknowledgment, deliverCallback, consumerTag -> {});
-            //channel.basicConsume(queue, autoAcknowledgment, consumer);
         }
         catch (Exception e){
             logger.error("Consumption failed with exception", e);
         }
     }
-
-    /*
-    public class CustomConsumer extends DefaultConsumer {
-        public CustomConsumer(Channel channel) {
-            super(channel);
-        }
-
-        @Override
-        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-            String message = new String(body, StandardCharsets.UTF_8);
-            ObjectMapper objectMapper = new ObjectMapper();
-            eventDAO.addEvent(objectMapper.convertValue(message, Event.class));
-            if(!autoAcknowledgment) {
-                // https://www.rabbitmq.com/docs/confirms#acknowledgement-modes
-                channel.basicAck(envelope.getDeliveryTag(), false);
-            }
-            logger.info("Message {} consumed successfully", message);
-        }
-    }
-    */
 }
