@@ -1,5 +1,6 @@
 package org.projects.event.Controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Controller
 public class EventController {
@@ -35,7 +35,7 @@ public class EventController {
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @RequestMapping(value = "events", method = RequestMethod.POST)
-    public ResponseEntity<Object> addEvent(@RequestBody Map<String, String> parameters){
+    public ResponseEntity<Object> addEvent(@RequestBody @Schema(implementation = Event.class) Map<String, String> parameters) throws JsonProcessingException {
         if(CollectionUtils.isEmpty(parameters)){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Payload is empty");
         }
@@ -44,7 +44,7 @@ public class EventController {
         }
         ObjectMapper objectMapper = new ObjectMapper();
         Event event = objectMapper.convertValue(parameters, Event.class);
-        event.setId(UUID.randomUUID());
+        event.setId(eventService.generateEventID(event));
         return eventService.addEvent(event);
     }
 

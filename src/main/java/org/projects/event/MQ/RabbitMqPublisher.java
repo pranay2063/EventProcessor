@@ -19,8 +19,9 @@ public class RabbitMqPublisher implements Publisher {
     private ConnectionFactory connectionFactory;
     @PostConstruct
     public void init(){
+        logger.info("Reached publisher");
         connectionFactory = new ConnectionFactory();
-        connectionFactory.setHost("localhost");
+        connectionFactory.setHost("host.docker.internal");
         connectionFactory.setPort(5672);
         exchangeName = "events";
         routingKey = "eventkey";
