@@ -9,7 +9,8 @@ Event Processor exposes an api to send events via email and read all sent mails 
 2. [RabbitMQ Management UI](http://localhost:15672/)
 
 **How to run the app locally**
-1. Start rabbitMQ from docker-compose
-2. Create exchange (events), queue (event) and bind them together with binding key (eventkey)
-3. Pull latest app image using the command: docker-compose build --pull
-4. Start the app from docker-compose 
+1. Download, install and start docker desktop manually or using the command: open -a Docker 
+2. Start rabbitMQ from docker-compose
+3. Create exchange (events), queue (event) and bind them together with binding key (eventkey)
+4. Pull latest app image using the command: docker-compose build --pull
+5. Start the app from docker-compose 
