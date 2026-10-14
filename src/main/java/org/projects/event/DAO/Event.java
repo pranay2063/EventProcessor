@@ -2,8 +2,6 @@ package org.projects.event.DAO;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.util.UUID;
-
 public class Event {
 
     @Schema(accessMode = Schema.AccessMode.READ_ONLY)

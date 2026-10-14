@@ -55,7 +55,7 @@ public class EventController {
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @RequestMapping(value = "events", method = RequestMethod.GET)
-    public ResponseEntity<Object> getEvent(@RequestParam(name = "Email") String user){
+    public ResponseEntity<Object> getEvent(@RequestParam(name = "email") String user){
         if(!StringUtils.hasLength(user)){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("User name is empty");
         }

@@ -14,14 +14,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.UUID;
 
 @Service
 public class EventServiceImpl implements EventService{
 
     private static final Logger logger = LoggerFactory.getLogger(EventServiceImpl.class);
-    private static AtomicInteger sequenceNumber = new AtomicInteger();
-
     @Autowired
     private EventDAO eventDAO;
 
@@ -57,11 +55,19 @@ public class EventServiceImpl implements EventService{
                     return Boolean.FALSE;
             }
         }
-        return Boolean.TRUE;
+        if (parameters.size() != 3) return Boolean.FALSE;
+        String sender = parameters.get("senderEmail");
+        String receiver = parameters.get("receiverEmail");
+        String message = parameters.get("message");
+        return isEmail(sender) && isEmail(receiver) && message != null && !message.isBlank();
+    }
+
+    private boolean isEmail(String value) {
+        return value != null && value.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     }
 
     @Override
     public String generateEventID(Event event) {
-        return Math.abs(event.getSenderEmail().hashCode()) + "-" + System.currentTimeMillis() + "-" + sequenceNumber.incrementAndGet();
+        return UUID.randomUUID().toString();
     }
 }
