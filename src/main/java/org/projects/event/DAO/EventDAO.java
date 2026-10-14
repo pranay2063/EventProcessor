@@ -5,36 +5,25 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Repository
 public class EventDAO {
 
-    List<Event> events;
-    Map<String, List<Event>> eventsPerUser;
+    private ConcurrentMap<String, List<Event>> eventsPerUser;
 
     @PostConstruct
     public void init(){
-        events = new ArrayList<>();
-        eventsPerUser = new HashMap<>();
+        eventsPerUser = new ConcurrentHashMap<>();
     }
 
     public ResponseEntity<Object> addEvent(Event event){
         try {
-            events.add(event);
-            List<Event> currentData;
             String sender = event.getSenderEmail();
-            if(eventsPerUser.containsKey(sender)){
-                currentData = eventsPerUser.get(sender);
-            }
-            else {
-                currentData = new ArrayList<>();
-            }
-            currentData.add(event);
-            eventsPerUser.put(sender, currentData);
+            eventsPerUser.computeIfAbsent(sender, key -> new CopyOnWriteArrayList<>()).add(event);
         }
         catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
@@ -43,10 +32,8 @@ public class EventDAO {
     }
 
     public List<Event> queryEvent(String name){
-        if(eventsPerUser.containsKey(name)){
-            return eventsPerUser.get(name);
-        }
-        return new ArrayList<>();
+        List<Event> found = eventsPerUser.get(name);
+        return found == null ? java.util.Collections.emptyList() : List.copyOf(found);
     }
 
 }

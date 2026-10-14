@@ -3,6 +3,7 @@ package org.projects.event.MQ;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.*;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.projects.event.DAO.Event;
 import org.projects.event.DAO.EventDAO;
 import org.slf4j.Logger;
@@ -13,8 +14,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 
 @Component
@@ -23,6 +22,8 @@ public class RabbitMqConsumer implements BasicConsumer {
     private final static Logger logger = LoggerFactory.getLogger(RabbitMqConsumer.class);
     private ConnectionFactory connectionFactory;
     private String queue;
+    private String exchangeName;
+    private String routingKey;
     private Connection connection;
     private Channel channel;
 
@@ -31,6 +32,8 @@ public class RabbitMqConsumer implements BasicConsumer {
     private Map<String, Object> queueArguments;
     private DeliverCallback deliverCallback;
     private Consumer consumer;
+    @org.springframework.beans.factory.annotation.Value("${spring.rabbitmq.host:localhost}") private String host;
+    @org.springframework.beans.factory.annotation.Value("${spring.rabbitmq.port:5672}") private int port;
     @Autowired
     private EventDAO eventDAO;
 
@@ -38,14 +41,15 @@ public class RabbitMqConsumer implements BasicConsumer {
     public void init() throws IOException, TimeoutException {
         logger.info("Reached consumer init");
         connectionFactory = new ConnectionFactory();
-        connectionFactory.setHost("host.docker.internal");
-        connectionFactory.setPort(5672);
+        connectionFactory.setHost(host);
+        connectionFactory.setPort(port);
         queue = "event";
+        exchangeName = "events";
+        routingKey = "eventkey";
         autoAcknowledgment = Boolean.FALSE;
         prefetchCount = 1;
         queueArguments = new HashMap<>();
         queueArguments.put("x-queue-type", "quorum");
-        queueArguments.put("x-queue-mode", "lazy");
         startConsumer();
     }
 
@@ -53,30 +57,24 @@ public class RabbitMqConsumer implements BasicConsumer {
         logger.info("Reached consumer startConsumer");
         connection = connectionFactory.newConnection();
         channel = connection.createChannel();
+        channel.exchangeDeclare(exchangeName, "topic", true);
         channel.queueDeclare(queue, true, false, false, queueArguments);
+        channel.queueBind(queue, exchangeName, routingKey);
         deliverCallback = (consumerTag, delivery) -> {
-            Event event = new ObjectMapper().readValue(delivery.getBody(), Event.class);
-            eventDAO.addEvent(event);
-            if(!autoAcknowledgment){
-                // https://www.rabbitmq.com/docs/confirms#acknowledgement-modes
-                channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+            try {
+                Event event = new ObjectMapper().readValue(delivery.getBody(), Event.class);
+                org.springframework.http.ResponseEntity<Object> result = eventDAO.addEvent(event);
+                if (!result.getStatusCode().is2xxSuccessful()) throw new IllegalStateException("Event persistence failed: " + result.getBody());
+                if (!autoAcknowledgment) channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                logger.info("Message consumed {}", event);
+            } catch (Exception e) {
+                logger.error("Event consumption failed; returning message to queue", e);
+                if (!autoAcknowledgment && channel.isOpen()) channel.basicNack(delivery.getEnvelope().getDeliveryTag(), false, true);
             }
-            logger.info("Message consumed {}", event);
         };
-        channel.addShutdownListener(listener -> {
-            if(!listener.isInitiatedByApplication()){
-                logger.info("Unexpected channel shutdown, attempting to recover");
-                try {
-                    startConsumer();
-                } catch (IOException | TimeoutException e) {
-                    logger.error("Channel recovery failed with exception", e);
-                }
-            }
-        });
         // https://www.rabbitmq.com/docs/consumer-prefetch
         channel.basicQos(prefetchCount, false);
-        ExecutorService executorService = Executors.newFixedThreadPool(1);
-        executorService.submit(this::consume);
+        consume();
     }
 
     @Override
@@ -87,5 +85,13 @@ public class RabbitMqConsumer implements BasicConsumer {
         catch (Exception e){
             logger.error("Consumption failed with exception", e);
         }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        try { if (channel != null && channel.isOpen()) channel.close(); }
+        catch (Exception e) { logger.warn("Failed to close RabbitMQ channel", e); }
+        try { if (connection != null && connection.isOpen()) connection.close(); }
+        catch (Exception e) { logger.warn("Failed to close RabbitMQ connection", e); }
     }
 }
