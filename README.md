@@ -10,33 +10,16 @@ The diagram shows the intended direction of the project. Components marked **pla
 
 ```mermaid
 flowchart LR
-    subgraph Sources[Alert sources]
-        MON[Monitoring systems]
-        APP[Applications and services]
-        OPS[Operators]
-    end
-
-    subgraph Intake[Alert Processor]
-        API[Alert intake API]
-        VALIDATE[Validate and normalize alert<br/>(planned)]
-        QUEUE[(RabbitMQ)]
-        PROCESS[Deduplicate, classify, enrich<br/>(planned)]
-        RULES[Apply routing rules<br/>(planned)]
-    end
-
-    subgraph Destinations[Notification destinations]
-        JIRA[Jira adapter<br/>(planned)]
-        PD[PagerDuty adapter<br/>(planned)]
-        EMAIL[Email adapter<br/>(planned)]
-    end
-
-    MON --> API
-    APP --> API
-    OPS --> API
-    API --> VALIDATE --> QUEUE --> PROCESS --> RULES
-    RULES --> JIRA
-    RULES --> PD
-    RULES --> EMAIL
+    MON["Monitoring systems"] --> API["Alert intake API"]
+    APP["Applications and services"] --> API
+    OPS["Operators"] --> API
+    API --> VALIDATE["Validate and normalize alert (planned)"]
+    VALIDATE --> QUEUE["RabbitMQ"]
+    QUEUE --> PROCESS["Deduplicate classify and enrich (planned)"]
+    PROCESS --> RULES["Apply routing rules (planned)"]
+    RULES --> JIRA["Jira adapter (planned)"]
+    RULES --> PD["PagerDuty adapter (planned)"]
+    RULES --> EMAIL["Email adapter (planned)"]
 ```
 
 ## Current implementation
